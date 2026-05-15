@@ -2,9 +2,22 @@
 
 from pathlib import Path
 from ui.colors import ask, ok, err, info, c, YELLOW, CYAN, DIM
-from crypto.vault import METHOD_ECC, METHOD_SIG
 from crypto.secure import wipe_bytes
-PNG_MAGIC = b"\x89PNG"
+
+# Method bytes defined locally — must stay in sync with crypto/vault.py.
+# Matches encrypt.py menu order exactly.
+METHOD_AESGCM = b'\x01'
+METHOD_AESCBC = b'\x02'
+METHOD_CHACHA = b'\x03'
+METHOD_ECC    = b'\x04'
+METHOD_SEQ    = b'\x05'
+METHOD_SIG    = b'\x06'
+PNG_MAGIC     = b"\x89PNG"
+VAULT_MAGIC   = b"F2EV"
+
+# New vault header: magic(4) + version(1) + method(1) + salt(16) + mac(32) = 54 bytes
+PAYLOAD_OFFSET = 4 + 1 + 1 + 16 + 32   # 54
+
 
 def action_decrypt():
     info("Decrypt a file")
@@ -12,8 +25,7 @@ def action_decrypt():
     if not src.is_file():
         err(f"File not found: {src}"); return
 
-    raw    = src.read_bytes()
-    # header = raw[0:1]
+    raw = src.read_bytes()
 
     priv_key_path  = None
     password       = ""
@@ -22,7 +34,7 @@ def action_decrypt():
 
     # ── Detect vault type ──────────────────────────────────────────────────────
     is_chameleon = (raw[:4] == PNG_MAGIC)
-    is_vault     = (raw[:4] == b"F2EV")
+    is_vault     = (raw[:4] == VAULT_MAGIC)
     is_ecc       = (is_vault and raw[5:6] == METHOD_ECC)
     is_sig       = (is_vault and raw[5:6] == METHOD_SIG)
 
@@ -37,6 +49,9 @@ def action_decrypt():
         if not cover_img_path.is_file():
             err(f"Cover image not found: {cover_img_path}"); return
 
+    elif not is_vault:
+        err("Unrecognised file format — not a file2enc vault or Chameleon PNG."); return
+
     elif is_ecc:
         priv_raw = ask("Private key file (.priv.pem)")
         priv_key_path = Path(priv_raw)
@@ -46,14 +61,13 @@ def action_decrypt():
     elif is_sig:
         from ui.sig_canvas import capture_signature
         from crypto.engine_sig import get_similarity
-        from crypto.vault import SALT_SIZE
         print(c("\n  A window will open — draw your signature to unlock the file.\n", YELLOW))
         sig_img = capture_signature("Draw your signature to decrypt, then click Confirm.")
         if sig_img is None:
             err("Signature cancelled. Decryption aborted."); return
 
         try:
-            payload = raw[1 + SALT_SIZE:]
+            payload = raw[PAYLOAD_OFFSET:]
             score   = get_similarity(payload, sig_img)
             if score >= 0.70:
                 ok(f"Signature match: {score:.1%} — unlocking...")
@@ -61,11 +75,10 @@ def action_decrypt():
                 err(f"Signature mismatch: {score:.1%} (need 70%). Decryption denied.")
                 return
         except Exception:
-            pass
+            pass   # let decrypt_file raise the proper error
 
     else:
-        if is_vault:
-            password = ask("Password", secret=True)
+        password = ask("Password", secret=True)
 
     # ── Output path ────────────────────────────────────────────────────────────
     if is_chameleon:
@@ -82,17 +95,13 @@ def action_decrypt():
     dst = Path(dst_raw) if dst_raw else default_dst
 
     # ── Decrypt ────────────────────────────────────────────────────────────────
-    decrypted = None
     try:
         from crypto.vault import decrypt_file
         decrypt_file(src, dst, password, priv_key_path, sig_img, cover_img_path)
 
         if is_chameleon and not dst.exists():
             candidates = list(dst.parent.glob(dst.name + ".*"))
-            if candidates:
-                ok(f"Decrypted → {candidates[0]}")
-            else:
-                ok(f"Decrypted → {dst}")
+            ok(f"Decrypted → {candidates[0]}") if candidates else ok(f"Decrypted → {dst}")
         else:
             ok(f"Decrypted → {dst}")
 
@@ -101,12 +110,10 @@ def action_decrypt():
     except Exception as e:
         err(f"Decryption failed: {e}"); return
     finally:
-        # Wipe password from memory regardless of success or failure
         if password:
             wipe_bytes(password.encode())
 
     # ── Wipe decrypted bytes from memory after writing ─────────────────────────
-    # Read what was just written so we can zero it
     try:
         written = dst.read_bytes() if dst.exists() else b""
         wipe_bytes(written)

@@ -37,12 +37,12 @@ A CLI file encryption tool with multiple encryption engines. Some of them are re
 > - The **Signature** engine is experimental. The signature image is embedded in the vault, which has design implications for key security.
 > - For **Chameleon**, well it's actually pretty secure and is a perfect disguise for hiding data!
 
-This project has been scanned with:
-- [Bandit](https://bandit.readthedocs.io) — Python static security analysis
-- [pip-audit](https://pypi.org/project/pip-audit) — dependency CVE scanning
+> This project has been scanned with:
+> - [Bandit](https://bandit.readthedocs.io) — Python static security analysis
+> - [pip-audit](https://pypi.org/project/pip-audit) — dependency CVE scanning
 
-This is **not** a substitute for a professional security audit.
-See [SECURITY.md](SECURITY.md) for detailed known limitations.
+> This is **not** a substitute for a professional security audit.
+> See [SECURITY.md](SECURITY.md) for detailed known limitations.
 
 ---
 

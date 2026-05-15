@@ -3,31 +3,20 @@
 # ── Vault file layout (all non-Chameleon methods) ─────────────────────────────
 #
 #   [ Magic      (4 bytes)  "F2EV"                          ]
-#   [ Version    (1 byte)   currently 0x01                  ]
+#   [ Version    (1 byte)   currently 0x02                  ]
 #   [ Method     (1 byte)   0x01–0x06                       ]
 #   [ Salt       (16 bytes) random, used for KDF             ]
 #   [ Header MAC (32 bytes) HMAC-SHA256 of bytes 0..22      ]
 #   [ Payload    (N bytes)  engine output                    ]
 #
-# The Header MAC authenticates Magic + Version + Method + Salt so that an
-# attacker cannot flip the method byte or salt without detection. The payload
-# itself is already authenticated by each engine's own AEAD tag / HMAC.
-#
-# The HMAC key for the header is derived from the payload's first 32 bytes
-# XOR'd with a fixed domain separator — it requires no extra secret.
-#
-# ── Versioning ────────────────────────────────────────────────────────────────
-# Bump VAULT_VERSION when the format changes. decrypt_file checks it and
-# raises a clear error rather than silently misreading old vaults.
-#
-# ── Method bytes ──────────────────────────────────────────────────────────────
-#   0x01 → Seq2Enc (GRU neural keystream) — experimental
-#   0x02 → AES-256-CBC + HMAC-SHA256
-#   0x03 → AES-256-GCM
-#   0x04 → ChaCha20-Poly1305
-#   0x05 → ECC (P-256 / ECIES)
-#   0x06 → Signature (biometric, AES-256-GCM)
-#   0x07 → Chameleon (steganographic PNG — separate format, no vault wrapper)
+# ── Method bytes (match encrypt.py menu order) ────────────────────────────────
+#   0x01 → AES-256-GCM          ✦ recommended
+#   0x02 → AES-256-CBC          + HMAC-SHA256
+#   0x03 → ChaCha20-Poly1305
+#   0x04 → ECC                  (P-256 / ECIES)
+#   0x05 → Seq2Enc              (GRU neural keystream) — experimental
+#   0x06 → Signature            (biometric, AES-256-GCM)
+#   0x07 → Chameleon            (steganographic PNG — no vault wrapper)
 
 import io
 import os
@@ -46,48 +35,44 @@ from crypto.engine_chameleon import chameleon_encrypt, chameleon_decrypt
 
 # ── Format constants ───────────────────────────────────────────────────────────
 
-VAULT_MAGIC   = b"F2EV"
-VAULT_VERSION = 0x02             # V2 = Argon2id  |  V1 = PBKDF2 (legacy)
-SALT_SIZE     = 16
-HEADER_MAC_SIZE = 32             # HMAC-SHA256
-HEADER_DOMAIN = b"file2enc-header-mac-v1"
+VAULT_MAGIC     = b"F2EV"
+VAULT_VERSION   = 0x02
+SALT_SIZE       = 16
+HEADER_MAC_SIZE = 32
+HEADER_DOMAIN   = b"file2enc-header-mac-v1"
+HEADER_SIZE     = 4 + 1 + 1 + SALT_SIZE   # magic(4) + ver(1) + method(1) + salt(16) = 22
+PAYLOAD_OFFSET  = HEADER_SIZE + HEADER_MAC_SIZE  # 54
 
-# Fixed header size = magic(4) + version(1) + method(1) + salt(16) = 22 bytes
-HEADER_SIZE   = 4 + 1 + 1 + SALT_SIZE   # 22
-
-METHOD_SEQ       = b'\x01'
+# Method bytes — order matches encrypt.py menu (1=GCM, 2=CBC, 3=ChaCha, 4=ECC, 5=Seq, 6=Sig)
+METHOD_AESGCM    = b'\x01'
 METHOD_AESCBC    = b'\x02'
-METHOD_AESGCM    = b'\x03'
-METHOD_CHACHA    = b'\x04'
-METHOD_ECC       = b'\x05'
+METHOD_CHACHA    = b'\x03'
+METHOD_ECC       = b'\x04'
+METHOD_SEQ       = b'\x05'
 METHOD_SIG       = b'\x06'
 METHOD_CHAMELEON = b'\x07'
 
 METHODS = {
-    "seq":       METHOD_SEQ,
-    "aescbc":    METHOD_AESCBC,
     "aesgcm":    METHOD_AESGCM,
+    "aescbc":    METHOD_AESCBC,
     "chacha":    METHOD_CHACHA,
     "ecc":       METHOD_ECC,
+    "seq":       METHOD_SEQ,
     "sig":       METHOD_SIG,
     "chameleon": METHOD_CHAMELEON,
 }
 
 __all__ = [
-    "encrypt_file", "decrypt_file", "SALT_SIZE",
-    "METHOD_SEQ", "METHOD_AESCBC", "METHOD_AESGCM",
-    "METHOD_CHACHA", "METHOD_ECC", "METHOD_SIG", "METHOD_CHAMELEON",
+    "encrypt_file", "decrypt_file",
+    "SALT_SIZE", "PAYLOAD_OFFSET",
+    "METHOD_AESGCM", "METHOD_AESCBC", "METHOD_CHACHA",
+    "METHOD_ECC", "METHOD_SEQ", "METHOD_SIG", "METHOD_CHAMELEON",
 ]
 
 
 # ── Header MAC ─────────────────────────────────────────────────────────────────
 
 def _header_mac(header_bytes: bytes, payload: bytes) -> bytes:
-    """
-    Compute HMAC-SHA256 over the 22-byte header.
-    Key = SHA-256(first 32 bytes of payload XOR domain separator, zero-padded).
-    This ties the header MAC to the payload without requiring a separate secret.
-    """
     payload_sample = (payload[:32] + b"\x00" * 32)[:32]
     domain_padded  = (HEADER_DOMAIN + b"\x00" * 32)[:32]
     mac_key = bytes(a ^ b for a, b in zip(payload_sample, domain_padded))
@@ -95,25 +80,18 @@ def _header_mac(header_bytes: bytes, payload: bytes) -> bytes:
 
 
 def _build_vault(method_byte: bytes, salt: bytes, payload: bytes) -> bytes:
-    """Assemble the full vault binary."""
-    header = (
-        VAULT_MAGIC
-        + bytes([VAULT_VERSION])
-        + method_byte
-        + salt
-    )
-    mac = _header_mac(header, payload)
+    header = VAULT_MAGIC + bytes([VAULT_VERSION]) + method_byte + salt
+    mac    = _header_mac(header, payload)
     return header + mac + payload
 
 
-def _parse_vault(raw: bytes) -> tuple[bytes, bytes, bytes, bytes]:
+def _parse_vault(raw: bytes) -> tuple[bytes, bytes, bytes]:
     """
     Parse and validate a vault binary.
-    Returns (method_byte, salt, payload, header).
-    Raises ValueError on bad magic, wrong version, or failed MAC.
+    Returns (method_byte, salt, payload).
+    Raises ValueError on bad magic, unsupported version, or failed MAC.
     """
-    min_size = HEADER_SIZE + HEADER_MAC_SIZE
-    if len(raw) < min_size:
+    if len(raw) < HEADER_SIZE + HEADER_MAC_SIZE:
         raise ValueError("File too short to be a valid vault.")
 
     magic   = raw[0:4]
@@ -121,7 +99,7 @@ def _parse_vault(raw: bytes) -> tuple[bytes, bytes, bytes, bytes]:
     method  = raw[5:6]
     salt    = raw[6:6 + SALT_SIZE]
     mac     = raw[HEADER_SIZE:HEADER_SIZE + HEADER_MAC_SIZE]
-    payload = raw[HEADER_SIZE + HEADER_MAC_SIZE:]
+    payload = raw[PAYLOAD_OFFSET:]
     header  = raw[:HEADER_SIZE]
 
     if magic != VAULT_MAGIC:
@@ -131,20 +109,17 @@ def _parse_vault(raw: bytes) -> tuple[bytes, bytes, bytes, bytes]:
         )
     if version not in (0x01, 0x02):
         raise ValueError(
-            f"Vault version mismatch — file uses version {version}, "
-            f"but this build supports versions 1 and 2.\n"
+            f"Vault version {version} is not supported by this build (supports 1 and 2).\n"
             "  Re-encrypt the file with the current version of file2enc."
         )
 
-    # Verify header MAC
     expected_mac = _header_mac(header, payload)
     if not hmac.compare_digest(mac, expected_mac):
         raise ValueError(
-            "Header integrity check failed — the vault header has been tampered with "
-            "or the file is corrupted."
+            "Header integrity check failed — the vault has been tampered with or corrupted."
         )
 
-    return method, salt, payload, header
+    return method, salt, payload
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -165,14 +140,11 @@ def encrypt_file(
     raw_data = src.read_bytes()
 
     match method:
-        case "seq":
-            payload = seq2enc(raw_data, password)
+        case "aesgcm":
+            payload = aesgcm_encrypt(raw_data, password, salt)
 
         case "aescbc":
             payload = aescbc_encrypt(raw_data, password, salt)
-
-        case "aesgcm":
-            payload = aesgcm_encrypt(raw_data, password, salt)
 
         case "chacha":
             payload = chacha_encrypt(raw_data, password, salt)
@@ -181,6 +153,9 @@ def encrypt_file(
             if pub_key_path is None:
                 raise ValueError("ECC encryption requires a public key file.")
             payload = ecc_encrypt(raw_data, load_public_key(pub_key_path), salt)
+
+        case "seq":
+            payload = seq2enc(raw_data, password)
 
         case "sig":
             if sig_img is None:
@@ -196,7 +171,7 @@ def encrypt_file(
             return   # Chameleon skips the standard vault wrapper
 
         case _:
-            raise ValueError(f"Method '{method}' is defined but not implemented.")
+            raise ValueError(f"Method '{method}' is not implemented.")
 
     dst.write_bytes(_build_vault(METHODS[method], salt, payload))
 
@@ -211,7 +186,7 @@ def decrypt_file(
 ) -> None:
     raw = src.read_bytes()
 
-    # ── Chameleon: pure PNG output, detected by PNG magic ─────────────────────
+    # ── Chameleon: pure PNG, detected by PNG magic ────────────────────────────
     if raw[:4] == b"\x89PNG":
         stego_img = Image.open(str(src))
         if not (hasattr(stego_img, "text") and "f2e_salt" in stego_img.text):
@@ -227,18 +202,14 @@ def decrypt_file(
         return
 
     # ── Standard vault ─────────────────────────────────────────────────────────
-    method, salt, payload, _ = _parse_vault(raw)
-    legacy = (raw[4] == 0x01)   # V1 vault → use PBKDF2; V2 → use Argon2id
+    method, salt, payload = _parse_vault(raw)
 
     match method:
-        case x if x == METHOD_SEQ:
-            decrypted = seq2enc(payload, password)
+        case x if x == METHOD_AESGCM:
+            decrypted = aesgcm_decrypt(payload, password, salt)
 
         case x if x == METHOD_AESCBC:
             decrypted = aescbc_decrypt(payload, password, salt)
-
-        case x if x == METHOD_AESGCM:
-            decrypted = aesgcm_decrypt(payload, password, salt)
 
         case x if x == METHOD_CHACHA:
             decrypted = chacha_decrypt(payload, password, salt)
@@ -247,6 +218,9 @@ def decrypt_file(
             if priv_key_path is None:
                 raise ValueError("ECC decryption requires a private key file.")
             decrypted = ecc_decrypt(payload, load_private_key(priv_key_path), salt)
+
+        case x if x == METHOD_SEQ:
+            decrypted = seq2enc(payload, password)
 
         case x if x == METHOD_SIG:
             if sig_img is None:
