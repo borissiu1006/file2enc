@@ -19,7 +19,10 @@ A CLI file encryption tool with multiple encryption engines. Some of them are re
 | Chameleon *(fun)*| AES-256-GCM + LSB steganography | Cover image |
 | Seq2Enc *(experimental)* | GRU neural keystream XOR | Password |
 
+<<<<<<< HEAD
 - Argon2id as Key Derivation Function
+=======
+>>>>>>> feature-argon
 - Arrow-key navigable terminal UI
 - Vault format with magic bytes, versioning, and header integrity (HMAC)
 - Secure file deletion (3-pass overwrite + fsync)
@@ -29,23 +32,38 @@ A CLI file encryption tool with multiple encryption engines. Some of them are re
 
 ## ⚠️ Security Disclaimer
 
+<<<<<<< HEAD
 **Do not use any fun/experimental engine on production**
 > - This tool is aimed for regular users' daily use. It is not professional enough for corporates/ organizations to handle sensitive data.
 > - ! For production use, do not use any fun/experimental engines (**Seq2Enc**, **Signature**, **Chameleon**). Use **AES-256-GCM**, **ChaCha20-Poly1305** or **ECC** only.
 > - No professional security audit has been performed on file2enc.
 > - I will keep improving the fun/experimental engines tho, hope they will be truly useful oneday
+=======
+> **No professional security audit has been performed on file2enc.**
+> - This tool is aimed for regular users' daily use. It is not professional enough for corporates/ organizations to handle sensitive data.
+> - ! For production use, do not use any fun/experimental engines (**Seq2Enc**, **Signature**, **Chameleon**). Use **AES-256-GCM**, **ChaCha20-Poly1305** or **ECC** only.
+>>>>>>> feature-argon
 
 **Flaws on Fun/Experimental Engines**
 > - The **Seq2Enc** engine uses a GRU neural network as a keystream generator. It has no cryptographic security proof and should **never** be used for real sensitive data.
 > - The **Signature** engine is experimental. The signature image is embedded in the vault, which has design implications for key security.
 > - For **Chameleon**, well it's actually pretty secure and is a perfect disguise for hiding data!
 
+<<<<<<< HEAD
 This project has been scanned with:
 > - [Bandit](https://bandit.readthedocs.io) — Python static security analysis
 > - [pip-audit](https://pypi.org/project/pip-audit) — dependency CVE scanning
 
 > - This is **not** a substitute for a professional security audit.
 > - See [SECURITY.md](SECURITY.md) for detailed known limitations.
+=======
+> This project has been scanned with:
+> - [Bandit](https://bandit.readthedocs.io) — Python static security analysis
+> - [pip-audit](https://pypi.org/project/pip-audit) — dependency CVE scanning
+
+> This is **not** a substitute for a professional security audit.
+> See [SECURITY.md](SECURITY.md) for detailed known limitations.
+>>>>>>> feature-argon
 
 ---
 
@@ -90,6 +108,14 @@ file2enc/
 │   ├── theme.py             ← Shared hex color constants
 │   └── sig_canvas.py        ← Tkinter signature drawing window
 ├── crypto/
+<<<<<<< HEAD
+=======
+│   ├── crypto/kdf.py  ← single place for all KDF logic
+│   │       ├── derive_key_argon2()    ← V2, new vaults
+│   │       ├── derive_keys_argon2()   ← V2, AES-CBC (needs 2 keys)
+│   │       ├── derive_key_pbkdf2()    ← V1, legacy read-only
+│   │       └── derive_keys_pbkdf2()   ← V1, AES-CBC legacy
+>>>>>>> feature-argon
 │   ├── vault.py             ← Vault format dispatcher
 │   ├── secure.py            ← Secure delete & memory wipe
 │   ├── engine_aesgcm.py

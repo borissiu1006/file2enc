@@ -1,4 +1,8 @@
 cryptography>=42.0.0
+<<<<<<< HEAD
+=======
+argon2-cffi>=23.1.0
+>>>>>>> feature-argon
 pillow>=10.0.0
 numpy>=1.24.0
 torch>=2.0.0
