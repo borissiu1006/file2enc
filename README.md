@@ -19,7 +19,7 @@ A CLI file encryption tool with multiple encryption engines. Some of them are re
 | Chameleon *(fun)*| AES-256-GCM + LSB steganography | Cover image |
 | Seq2Enc *(experimental)* | GRU neural keystream XOR | Password |
 
-- Argon2id as Key Derivation Function
+- Argon2id key derivation (`src/crypto/kdf.py`)
 - Arrow-key navigable terminal UI
 - Vault format with magic bytes, versioning, and header integrity (HMAC)
 - Secure file deletion (3-pass overwrite + fsync)
@@ -52,7 +52,7 @@ This project has been scanned with:
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/file2enc.git
+git clone https://github.com/borissiu1006/file2enc.git
 cd file2enc
 pip install -r requirements.txt
 python main.py
@@ -81,31 +81,37 @@ pip install -r requirements.txt
 
 ```
 file2enc/
-├── main.py                  ← Entry point
+├── main.py                      ← Entry point
+├── pytest.ini                   
 ├── requirements.txt
-├── ui/
-│   ├── banner.py            ← ASCII pixel art banner
-│   ├── menu.py              ← Arrow-key navigable menu
-│   ├── colors.py            ← ANSI color helpers
-│   ├── theme.py             ← Shared hex color constants
-│   └── sig_canvas.py        ← Tkinter signature drawing window
-├── crypto/
-│   ├── vault.py             ← Vault format dispatcher
-│   ├── secure.py            ← Secure delete & memory wipe
-│   ├── engine_aesgcm.py
-│   ├── engine_aescbc.py
-│   ├── engine_chacha20.py
-│   ├── engine_ecc.py
-│   ├── engine_sig.py.       ← Fun engine
-│   ├── engine_chameleon.py. ← Fun engine
-│   └── engine_seq2enc.py    ← Experimental
-├── actions/
-│   ├── encrypt.py
-│   ├── decrypt.py
-│   ├── inspect.py
-│   └── help.py
-└── tests/
-    └── test_engines.py
+├── src/
+│   ├── actions/
+│   │   ├── encrypt.py
+│   │   ├── decrypt.py
+│   │   ├── inspect.py
+│   │   └── help.py
+│   ├── crypto/
+│   │   ├── engines/
+│   │   │   ├── engine_aesgcm.py
+│   │   │   ├── engine_aescbc.py
+│   │   │   ├── engine_chacha20.py
+│   │   │   ├── engine_ecc.py
+│   │   │   ├── engine_sig.py        ← Fun engine
+│   │   │   ├── engine_chameleon.py  ← Fun engine
+│   │   │   └── engine_seq2enc.py    ← Experimental
+│   │   ├── kdf.py               ← Argon2id key derivation
+│   │   ├── vault.py             ← Vault format dispatcher
+│   │   └── secure.py            ← Secure delete & memory wipe
+│   └── ui/
+│       ├── banner.py            ← ASCII pixel art banner
+│       ├── menu.py              ← Arrow-key navigable menu
+│       ├── colors.py            ← ANSI color helpers
+│       └── sig_canvas.py        ← Tkinter signature drawing window
+└── test/
+    ├── test_methods/
+    │   ├── test_engines.py      ← Engine unit tests
+    │   └── test_fuzz.py         ← Fuzz tests
+    └── test_files/              ← Sample files used by tests
 ```
 
 ---
@@ -166,7 +172,10 @@ Decrypt a file → provide the vault file → enter password (or key/signature)
 
 ```bash
 pip install pytest
-python -m pytest tests/test_engines.py -v
+python -m pytest test/test_methods/test_engines.py -v
+
+# Skip slow GRU tests
+python -m pytest test/test_methods/test_engines.py -v -m "not slow"
 ```
 
 ---
@@ -174,5 +183,3 @@ python -m pytest tests/test_engines.py -v
 ## License
 
 MIT — see [LICENSE](LICENSE).
-# file2enc
-An encryption tool with several engines that safely encrypt your files.
