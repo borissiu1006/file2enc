@@ -55,13 +55,14 @@ This project has been scanned with:
 git clone https://github.com/borissiu1006/file2enc.git
 cd file2enc
 pip install -r requirements.txt
-python main.py
+python3 -m src.main
 ```
 
 ### Requirements
 
 ```
 cryptography
+argon2id
 pillow
 numpy
 torch
