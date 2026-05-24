@@ -1,7 +1,7 @@
 # crypto/engine_seq2enc.py
 #
 # Seq2Enc: uses a GRU neural network as a keystream generator.
-# The model weights are derived entirely from the password via PBKDF2,
+# The model weights are derived entirely from the password via Argon2id,
 # making the network fully deterministic across all runs and platforms.
 # XOR is symmetric, so the same function encrypts AND decrypts.
 #
@@ -13,8 +13,7 @@ import hashlib
 import struct
 import torch
 import torch.nn as nn
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
+from src.crypto.kdf import derive_key as _argon2_derive
 
 
 # ── Model ──────────────────────────────────────────────────────────────────────
@@ -44,21 +43,14 @@ def _count_params(model: nn.Module) -> int:
 
 def _load_weights_from_password(model: nn.Module, password: str) -> None:
     """
-    Derive all model weights deterministically from the password using PBKDF2.
+    Derive all model weights deterministically from the password using Argon2id.
     Each parameter tensor is filled from a slice of the derived byte stream.
     """
     n_params = _count_params(model)
     n_bytes  = n_params * 4  # float32 = 4 bytes each
 
-    # Stretch password into enough bytes for every weight via PBKDF2 + SHA-256 chaining
-    pbkdf2_len = min(n_bytes, 8192)
-    kdf = PBKDF2HMAC(
-        algorithm=hashes.SHA256(),
-        length=pbkdf2_len,
-        salt=FIXED_SALT,
-        iterations=50_000,
-    )
-    seed_bytes = kdf.derive(password.encode("utf-8"))
+    # Seed from Argon2id (32 bytes), then chain SHA-256 until we have enough
+    seed_bytes = _argon2_derive(password, FIXED_SALT)  # 32 bytes
 
     # Chain SHA-256 blocks until we have enough bytes
     while len(seed_bytes) < n_bytes:
@@ -82,8 +74,6 @@ def _load_weights_from_password(model: nn.Module, password: str) -> None:
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
-
-CHUNK = 256  # tokens processed per GRU forward pass
 
 
 def _build_model(password: str) -> tuple:
@@ -135,11 +125,35 @@ def _generate_keystream(model: KeystreamGRU, hidden: torch.Tensor, length: int) 
     return bytes(stream[:length])
 
 
+def _argon2_pad(password: str, length: int) -> bytes:
+    """
+    Derive `length` bytes from the password via Argon2id + SHA-256 chaining.
+    Uses a salt distinct from FIXED_SALT so this stream is independent of
+    the weight-derivation stream.  Argon2id is memory-hard and GPU-resistant,
+    consistent with every other engine in file2enc.
+    """
+    PAD_SALT = b"seq2enc-pad-v1"
+    # Argon2id produces 32 bytes; chain with SHA-256 for longer payloads
+    pad = _argon2_derive(password, PAD_SALT)  # 32 bytes
+    while len(pad) < length:
+        pad += hashlib.sha256(pad[-32:] + len(pad).to_bytes(4, "big")).digest()
+    return pad[:length]
+
+
 def seq2enc(data: bytes, password: str) -> bytes:
     """
     Encrypt or decrypt `data` using a GRU keystream derived from `password`.
     Calling this twice with the same password restores the original data.
+
+    The GRU keystream is XORed with an Argon2id-derived pad so that password
+    sensitivity is guaranteed even if the GRU converges to the same attractor
+    for different weight initialisations.
     """
+    if not data:
+        return b""
     model, hidden = _build_model(password)
-    keystream = _generate_keystream(model, hidden, len(data))
+    gru_stream = _generate_keystream(model, hidden, len(data))
+    pad_stream  = _argon2_pad(password, len(data))
+    # Combined keystream: GRU ⊕ Argon2id-pad — still XOR-symmetric
+    keystream = bytes(g ^ p for g, p in zip(gru_stream, pad_stream))
     return bytes(b ^ k for b, k in zip(data, keystream))

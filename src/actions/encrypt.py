@@ -1,8 +1,8 @@
 # actions/encrypt.py
 
 from pathlib import Path
-from ui.colors import ask, ok, err, info, c, WHITE, BOLD, DIM, CYAN, YELLOW, GREEN
-from crypto.secure import wipe_bytes
+from src.ui.colors import ask, ok, err, info, c, WHITE, BOLD, DIM, CYAN, YELLOW, GREEN
+from src.crypto.secure import wipe_bytes
 
 ENGINES = {
     "1": ("aesgcm",    "AES-256-GCM          — ✦ Recommended -- Fast with built-in authentication "),
@@ -45,7 +45,7 @@ def action_encrypt():
         key_choice = ask("Select [1/2]").strip()
 
         if key_choice == "1":
-            from crypto.engine_ecc import generate_keypair
+            from src.crypto.engines.engine_ecc import generate_keypair
             stem_raw = ask("Key name stem [mykey]")
             stem = Path(stem_raw) if stem_raw else Path("mykey")
             try:
@@ -65,7 +65,7 @@ def action_encrypt():
             err("Invalid choice."); return
 
     elif method == "sig":
-        from ui.sig_canvas import capture_signature
+        from src.ui.sig_canvas import capture_signature
         print(c("\n  A window will open — draw your signature to use as the encryption key.\n", YELLOW))
         sig_img = capture_signature("Draw your signature, then click Confirm.")
         if sig_img is None:
@@ -85,7 +85,7 @@ def action_encrypt():
             err("Cover image must be a JPG, PNG, BMP, or TIFF file."); return
 
         try:
-            from crypto.engine_chameleon import cover_image_capacity
+            from src.crypto.engines.engine_chameleon import cover_image_capacity
             cap_str = cover_image_capacity(cover_img_path)
             print(c(f"\n  Cover capacity : {cap_str}", GREEN))
         except Exception:
@@ -116,7 +116,7 @@ def action_encrypt():
     # ── Encrypt ────────────────────────────────────────────────────────────────
     raw_data = None
     try:
-        from crypto.vault import encrypt_file
+        from src.crypto.vault import encrypt_file
         encrypt_file(src, dst, password, method, pub_key_path, sig_img, cover_img_path)
         ok(f"Encrypted ({label.split('—')[0].strip()}) → {dst}")
 
@@ -140,7 +140,7 @@ def action_encrypt():
     ).strip().lower()
 
     if confirm == "y":
-        from crypto.secure import secure_delete
+        from src.crypto.secure import secure_delete
         try:
             secure_delete(src)
             ok(f"Original securely deleted: {src.name}")

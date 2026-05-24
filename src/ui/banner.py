@@ -1,7 +1,7 @@
 # ui/banner.py — Pixel block-art banner and version header
 
 import os
-from ui.colors import c, CYAN, GREEN, BOLD, DIM, YELLOW, WHITE, ORANGE, RED
+from src.ui.colors import c, CYAN, GREEN, BOLD, DIM, YELLOW, WHITE, ORANGE, RED
 
 
 def print_banner():

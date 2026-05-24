@@ -14,14 +14,14 @@ except ImportError:
     print("Missing dependency. Run:  pip install cryptography")
     sys.exit(1)
 
-from ui.banner import clear, print_banner
-from ui.menu   import print_menu, prompt_choice
-from ui.colors import c, CYAN, BOLD, pause
+from src.ui.banner import clear, print_banner
+from src.ui.menu   import print_menu, prompt_choice
+from src.ui.colors import c, CYAN, BOLD, pause
 
-from actions.encrypt import action_encrypt
-from actions.decrypt import action_decrypt
-from actions.inspect import action_inspect
-from actions.help    import action_help
+from src.actions.encrypt import action_encrypt
+from src.actions.decrypt import action_decrypt
+from src.actions.inspect import action_inspect
+from src.actions.help    import action_help
 
 ACTIONS = {
     "encrypt": action_encrypt,
@@ -38,7 +38,7 @@ def main():
         print_menu()
         choice = prompt_choice()
         if choice == "exit":
-            print(c("\n  Stay locked in\n", CYAN, BOLD))
+            print(c("Exiting FILE2ENC...\n", CYAN, BOLD))
             sys.exit(0)
         elif choice in ACTIONS:
             print()

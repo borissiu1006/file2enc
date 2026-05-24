@@ -1,7 +1,7 @@
 # ui/menu.py — Arrow-key navigable menu with a framed box
 
 import sys
-from ui.colors import c, BOLD, GREEN, DIM, WHITE, ORANGE, visible_len
+from src.ui.colors import c, BOLD, GREEN, DIM, WHITE, ORANGE, visible_len
 
 MENU_ITEMS = [
     ("Encrypt a file",            "encrypt"),

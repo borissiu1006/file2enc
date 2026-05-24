@@ -1,6 +1,6 @@
 from pathlib import Path
-from ui.colors import ask, ok, err, info, c, CYAN, DIM, YELLOW, GREEN
-from crypto.vault import SALT_SIZE
+from src.ui.colors import ask, ok, err, info, c, CYAN, DIM, YELLOW, GREEN
+from src.crypto.vault import SALT_SIZE
 
 
 def action_inspect():

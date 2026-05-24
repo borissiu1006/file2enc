@@ -23,10 +23,8 @@ env/
 *.cham.png
 
 # Test artifacts & cache
-tests/output/
-tests/*.vault
-tests/*.decrypted
-tests/
+test/*.vault
+test/*.decrypted
 .pytest_cache/
 
 # OS

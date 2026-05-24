@@ -10,7 +10,7 @@
 import os
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.exceptions import InvalidTag
-from crypto.kdf import derive_key
+from src.crypto.kdf import derive_key
 
 NONCE_SIZE = 12
 TAG_SIZE   = 16

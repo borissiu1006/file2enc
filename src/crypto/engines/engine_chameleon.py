@@ -93,10 +93,13 @@ MAX_EXT_LEN  = 16
 def _cover_fingerprint(cover_img: Image.Image) -> bytes:
     """
     Produce a stable 32-byte fingerprint of the cover image.
-    Resize to a fixed canvas first so fingerprint is independent of
-    how the image was loaded (avoids EXIF-rotation surprises).
+    SHA-256 is computed over the full-resolution pixel array so that
+    even a single-pixel change produces a completely different fingerprint
+    (and therefore a different AES key).  Resizing to a smaller canvas
+    before hashing was discarding small pixel differences via LANCZOS
+    interpolation, breaking the "wrong cover → wrong key" guarantee.
     """
-    img = cover_img.convert("RGB").resize((256, 256), Image.LANCZOS)
+    img = cover_img.convert("RGB")
     arr = np.array(img, dtype=np.uint8)
     return hashlib.sha256(arr.tobytes()).digest()
 

@@ -1,8 +1,8 @@
 # actions/decrypt.py
 
 from pathlib import Path
-from ui.colors import ask, ok, err, info, c, YELLOW, CYAN, DIM
-from crypto.secure import wipe_bytes
+from src.ui.colors import ask, ok, err, info, c, YELLOW, CYAN, DIM
+from src.crypto.secure import wipe_bytes
 
 # Method bytes defined locally — must stay in sync with crypto/vault.py.
 # Matches encrypt.py menu order exactly.
@@ -59,8 +59,8 @@ def action_decrypt():
             err(f"Private key not found: {priv_key_path}"); return
 
     elif is_sig:
-        from ui.sig_canvas import capture_signature
-        from crypto.engine_sig import get_similarity
+        from src.ui.sig_canvas import capture_signature
+        from src.crypto.engines.engine_sig import get_similarity
         print(c("\n  A window will open — draw your signature to unlock the file.\n", YELLOW))
         sig_img = capture_signature("Draw your signature to decrypt, then click Confirm.")
         if sig_img is None:
@@ -96,7 +96,7 @@ def action_decrypt():
 
     # ── Decrypt ────────────────────────────────────────────────────────────────
     try:
-        from crypto.vault import decrypt_file
+        from src.crypto.vault import decrypt_file
         decrypt_file(src, dst, password, priv_key_path, sig_img, cover_img_path)
 
         if is_chameleon and not dst.exists():

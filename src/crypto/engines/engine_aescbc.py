@@ -14,7 +14,7 @@ import hashlib
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
-from crypto.kdf import derive_keys
+from src.crypto.kdf import derive_keys
 
 IV_SIZE   = 16
 HMAC_SIZE = 32

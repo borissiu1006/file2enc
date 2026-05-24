@@ -25,13 +25,13 @@ import hashlib
 from pathlib import Path
 from PIL import Image
 
-from crypto.engine_aescbc    import aescbc_encrypt,  aescbc_decrypt
-from crypto.engine_seq2enc   import seq2enc
-from crypto.engine_aesgcm    import aesgcm_encrypt,  aesgcm_decrypt
-from crypto.engine_chacha20  import chacha_encrypt,   chacha_decrypt
-from crypto.engine_ecc       import ecc_encrypt, ecc_decrypt, load_public_key, load_private_key
-from crypto.engine_sig       import sig_encrypt, sig_decrypt
-from crypto.engine_chameleon import chameleon_encrypt, chameleon_decrypt
+from src.crypto.engines.engine_aescbc    import aescbc_encrypt,  aescbc_decrypt
+from src.crypto.engines.engine_seq2enc   import seq2enc
+from src.crypto.engines.engine_aesgcm    import aesgcm_encrypt,  aesgcm_decrypt
+from src.crypto.engines.engine_chacha20  import chacha_encrypt,   chacha_decrypt
+from src.crypto.engines.engine_ecc       import ecc_encrypt, ecc_decrypt, load_public_key, load_private_key
+from src.crypto.engines.engine_sig       import sig_encrypt, sig_decrypt
+from src.crypto.engines.engine_chameleon import chameleon_encrypt, chameleon_decrypt
 
 # ── Format constants ───────────────────────────────────────────────────────────
 

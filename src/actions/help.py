@@ -1,6 +1,6 @@
 # actions/help.py
 
-from ui.colors import c, CYAN, GREEN, WHITE, BOLD, DIM, ORANGE
+from src.ui.colors import c, CYAN, GREEN, WHITE, BOLD, DIM, ORANGE
 
 
 def action_help():
